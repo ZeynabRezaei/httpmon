@@ -128,7 +128,7 @@ func Login() gin.HandlerFunc {
 		token, refreshToken, _ := helper.GenerateAllTokens(*foundUser.Name, foundUser.User_id)
 
 		helper.UpdateAllTokens(token, refreshToken, foundUser.User_id)
-
+		MonitorAllRequests(foundUser)
 		c.JSON(http.StatusOK, foundUser)
 
 	}
@@ -168,6 +168,7 @@ func CreateUrl() gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "this url already exists"})
 			return
 		}
+		url.Failed = 0
 		user.Urls = append(user.Urls, url)
 		filter := bson.M{"user_id": userId}
 		userCollection.ReplaceOne(ctx, filter, user)
@@ -192,6 +193,7 @@ func GetUrl() gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
+
 		c.JSON(http.StatusOK, user.Urls)
 	}
 }
@@ -235,5 +237,66 @@ func DeleteUrl() gin.HandlerFunc {
 			return
 		}
 		c.JSON(http.StatusOK, user)
+	}
+}
+
+func MonitorAllRequests(user models.User) {
+	for _, x := range user.Urls {
+		fmt.Printf("url: %s  userId: %s\n", x.URL, user.User_id)
+		go RequestHTTP(user.User_id, x)
+	}
+}
+
+func RequestHTTP(userId string, url models.URL) {
+	for true {
+		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		var user models.User
+		err := userCollection.FindOne(ctx, bson.M{"user_id": userId}).Decode(&user)
+		defer cancel()
+		var isURLExists bool = false
+		var index int = 0
+		for i, x := range user.Urls {
+			if x.URL == url.URL {
+				isURLExists = true
+				index = i
+				break
+			}
+		}
+		if !isURLExists {
+			break
+		}
+		resp, err := http.Get(url.URL)
+		if err != nil {
+			log.Fatalln(err)
+		}
+		fmt.Printf("url: %s  statuscode: %d\n", url.URL, resp.StatusCode)
+		var history models.History
+		history.URL = url
+		history.StatusCode = resp.StatusCode
+		history.Requested_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
+		if resp.StatusCode < 200 && resp.StatusCode > 299 {
+			user.Urls[index].Failed++
+		} else {
+			user.Urls[index].Succeed++
+		}
+		user.History = append(user.History, history)
+		filter := bson.M{"user_id": userId}
+		userCollection.ReplaceOne(ctx, filter, user)
+		time.Sleep(10 * time.Second)
+	}
+}
+func GetHistory() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		userId, _ := c.Get("user_id")
+		var user models.User
+		err := userCollection.FindOne(ctx, bson.M{"user_id": userId}).Decode(&user)
+		defer cancel()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, user.History)
 	}
 }
