@@ -195,3 +195,45 @@ func GetUrl() gin.HandlerFunc {
 		c.JSON(http.StatusOK, user.Urls)
 	}
 }
+func DeleteUrl() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		userId, _ := c.Get("user_id")
+		var user models.User
+		err := userCollection.FindOne(ctx, bson.M{"user_id": userId}).Decode(&user)
+		defer cancel()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		var url models.URL
+		if err := c.BindJSON(&url); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		var result bool = false
+		var index int = 0
+		for i, x := range user.Urls {
+			if x.URL == url.URL {
+				result = true
+				index = i
+				break
+			}
+		}
+		if !result {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "this url not exists"})
+			return
+		}
+		user.Urls = append(user.Urls[:index], user.Urls[index+1:]...)
+		filter := bson.M{"user_id": userId}
+		userCollection.ReplaceOne(ctx, filter, user)
+
+		defer cancel()
+
+		if err != nil {
+			log.Panic(err)
+			return
+		}
+		c.JSON(http.StatusOK, user)
+	}
+}

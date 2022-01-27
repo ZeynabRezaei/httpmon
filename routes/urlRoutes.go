@@ -9,6 +9,7 @@ import (
 //urlRoutes function
 func UrlRoutes(incomingRoutes *gin.Engine) {
 	incomingRoutes.Use(middleware.Authentication())
-	incomingRoutes.POST("/Url/create", controller.CreateUrl())
-	incomingRoutes.GET("/Url/get", controller.GetUrl())
+	incomingRoutes.POST("/url/create", controller.CreateUrl())
+	incomingRoutes.POST("/url/delete", controller.DeleteUrl())
+	incomingRoutes.GET("/url/get", controller.GetUrl())
 }
