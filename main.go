@@ -1,37 +1,39 @@
 package main
 
 import (
-	"fmt"
-	"time"
-	jwt "github.com/dgrijalva/jwt-go"
+	"os"
+
+	middleware "httpmon.com/first/middleware"
+	routes "httpmon.com/first/routes"
+
+	"github.com/gin-gonic/gin"
+	_ "github.com/heroku/x/hmetrics/onload"
 )
 
-var mySigningKey = []byte("mysupersecretphrase")
+func main() {
+	port := os.Getenv("PORT")
 
-func GenerateJWT() (string, error) {
-	token := jwt.New(jwt.SigningMethodHS256)
-
-	claims := token.Claims.(jwt.MapClaims)
-
-	claims["authorized"] = true
-	claims["users"] = "Elliot Forbes"
-	claims["exp"] = time.Now().Add(time.Minute * 30).Unix()
-
-	tokenString, err := token.SignedString(mySigningKey)
-
-	if err != nil{
-		fmt.Errorf("Somthing went wrong: %s", err.Error())
-		return "", err
+	if port == "" {
+		port = "8000"
 	}
 
-	return tokenString, nil
-}
+	router := gin.New()
+	router.Use(gin.Logger())
+	routes.UserRoutes(router)
 
-func main(){
-	fmt.Println("hello world")
-	tokenString, err := GenerateJWT()
-	if err != nil{
-		fmt.Println("Error generating token string")
-	}
-	fmt.Println(tokenString)
+	router.Use(middleware.Authentication())
+
+	// API-2
+	router.GET("/api-1", func(c *gin.Context) {
+
+		c.JSON(200, gin.H{"success": "Access granted for api-1"})
+
+	})
+
+	// API-1
+	router.GET("/api-2", func(c *gin.Context) {
+		c.JSON(200, gin.H{"success": "Access granted for api-2"})
+	})
+
+	router.Run(":" + port)
 }
