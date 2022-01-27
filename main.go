@@ -3,7 +3,6 @@ package main
 import (
 	"os"
 
-	middleware "httpmon.com/first/middleware"
 	routes "httpmon.com/first/routes"
 
 	"github.com/gin-gonic/gin"
@@ -20,8 +19,7 @@ func main() {
 	router := gin.New()
 	router.Use(gin.Logger())
 	routes.UserRoutes(router)
-
-	router.Use(middleware.Authentication())
+	routes.UrlRoutes(router)
 
 	// API-2
 	router.GET("/api-1", func(c *gin.Context) {
