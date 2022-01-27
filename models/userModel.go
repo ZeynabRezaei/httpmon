@@ -18,4 +18,5 @@ type User struct {
 	User_id       string             `json:"user_id"`
 	Urls          []URL              `json:"urls"`
 	History       []History          `json:"history"`
+	Alerts        []History          `json:"alert"`
 }
