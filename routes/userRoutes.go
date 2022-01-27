@@ -12,4 +12,5 @@ func UserRoutes(incomingRoutes *gin.Engine) {
 	incomingRoutes.POST("/users/login", controller.Login())
 	incomingRoutes.Use(middleware.Authentication())
 	incomingRoutes.GET("/users/history", controller.GetHistory())
+	incomingRoutes.GET("/users/alerts", controller.GetAlerts())
 }

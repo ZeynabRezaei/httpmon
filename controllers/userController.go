@@ -129,14 +129,13 @@ func Login() gin.HandlerFunc {
 
 		helper.UpdateAllTokens(token, refreshToken, foundUser.User_id)
 		MonitorAllRequests(foundUser)
-		c.JSON(http.StatusOK, foundUser)
+		c.JSON(http.StatusOK, foundUser.Token)
 
 	}
 }
 
 func CreateUrl() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		fmt.Println("Hello world")
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
 		userId, _ := c.Get("user_id")
 		fmt.Println(userId)
@@ -179,6 +178,7 @@ func CreateUrl() gin.HandlerFunc {
 			log.Panic(err)
 			return
 		}
+		go RequestHTTP(user.User_id, url)
 		c.JSON(http.StatusOK, user)
 	}
 }
@@ -276,6 +276,11 @@ func RequestHTTP(userId string, url models.URL) {
 		history.Requested_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 		if resp.StatusCode < 200 && resp.StatusCode > 299 {
 			user.Urls[index].Failed++
+			if user.Urls[index].Failed == user.Urls[index].Threshold {
+				user.Alerts = append(user.Alerts, history)
+				user.Urls[index].Failed = 0
+			}
+
 		} else {
 			user.Urls[index].Succeed++
 		}
@@ -298,5 +303,20 @@ func GetHistory() gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, user.History)
+	}
+}
+func GetAlerts() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		userId, _ := c.Get("user_id")
+		var user models.User
+		err := userCollection.FindOne(ctx, bson.M{"user_id": userId}).Decode(&user)
+		defer cancel()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, user.Alerts)
 	}
 }
