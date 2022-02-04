@@ -1,2 +1,3 @@
 # httpmon
-project with golang programming language for SBU
+http monitoring project with golang programming language for SBU
+
